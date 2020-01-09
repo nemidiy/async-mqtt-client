@@ -15,8 +15,9 @@
 #endif
 
 #if ASYNC_TCP_SSL_ENABLED
-#include <tcp_axtls.h>
+#include <tcp_mbedtls.h>
 #define SHA1_SIZE 20
+#define TLS_PSK_SIZE 64 + 1
 #endif
 
 #include "AsyncMqttClient/Flags.hpp"
@@ -61,8 +62,12 @@ class AsyncMqttClient {
   AsyncMqttClient& setServer(const char* host, uint16_t port);
 #if ASYNC_TCP_SSL_ENABLED
   AsyncMqttClient& setSecure(bool secure);
+  #if ESP32
+  AsyncMqttClient& setPsk(const char* psk_ident, const char* psk);
+  #elif defined(ESP8266)
   AsyncMqttClient& addServerFingerprint(const uint8_t* fingerprint);
-#endif
+  #endif // ESP 32
+#endif // ASYNC_TCP_SSL_ENABLED
 
   AsyncMqttClient& onConnect(AsyncMqttClientInternals::OnConnectUserCallback callback);
   AsyncMqttClient& onDisconnect(AsyncMqttClientInternals::OnDisconnectUserCallback callback);
@@ -165,4 +170,9 @@ class AsyncMqttClient {
   bool _sendDisconnect();
 
   uint16_t _getNextPacketId();
+
+#if defined(ESP32) && defined(ASYNC_TCP_SSL_ENABLED)
+  char psk_ident[TLS_PSK_SIZE];
+  char psk[TLS_PSK_SIZE];
+#endif
 };

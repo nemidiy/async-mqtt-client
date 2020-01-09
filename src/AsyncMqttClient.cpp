@@ -111,14 +111,31 @@ AsyncMqttClient& AsyncMqttClient::setSecure(bool secure) {
   _secure = secure;
   return *this;
 }
+  #if ESP32
+AsyncMqttClient& AsyncMqttClient::setPsk(const char* psk_ident, const char* psk){
+  if(strlen(psk_ident) > TLS_PSK_SIZE - 1 || strlen(psk) > TLS_PSK_SIZE - 1){
+    log_e("PSK identity and PSK smust be lower than 32 bytes long");
+    return *this;
+  }
 
+  memset(this->psk_ident, 0, TLS_PSK_SIZE);
+  memset(this->psk, 0, TLS_PSK_SIZE);
+
+  memcpy(this->psk_ident, psk_ident, TLS_PSK_SIZE);
+  memcpy(this->psk, psk, TLS_PSK_SIZE);
+
+  _client.setPsk(this->psk_ident, this->psk);
+  return *this;
+}
+  #elif defined(ESP8266)
 AsyncMqttClient& AsyncMqttClient::addServerFingerprint(const uint8_t* fingerprint) {
   std::array<uint8_t, SHA1_SIZE> newFingerprint;
   memcpy(newFingerprint.data(), fingerprint, SHA1_SIZE);
   _secureServerFingerprints.push_back(newFingerprint);
   return *this;
 }
-#endif
+  #endif // ESP32
+#endif // ASYNC_TCP_SSL_ENABLED
 
 AsyncMqttClient& AsyncMqttClient::onConnect(AsyncMqttClientInternals::OnConnectUserCallback callback) {
   _onConnectUserCallbacks.push_back(callback);
@@ -177,7 +194,9 @@ void AsyncMqttClient::_clear() {
 void AsyncMqttClient::_onConnect(AsyncClient* client) {
   (void)client;
 
-#if ASYNC_TCP_SSL_ENABLED
+
+#if defined(ASYNC_TCP_SSL_ENABLED) && defined(ESP8266)
+
   if (_secure && _secureServerFingerprints.size() > 0) {
     SSL* clientSsl = _client.getSSL();
 
@@ -195,6 +214,7 @@ void AsyncMqttClient::_onConnect(AsyncClient* client) {
       return;
     }
   }
+
 #endif
 
   char fixedHeader[5];
